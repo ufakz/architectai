@@ -1,0 +1,55 @@
+@import "tailwindcss";
+
+@theme {
+    /* Modern Minimalist / SaaS Theme */
+    --color-background: #f8fafc;
+    /* slate-50 */
+    --color-foreground: #0f172a;
+    /* slate-900 */
+
+    --color-card: #ffffff;
+    --color-card-foreground: #0f172a;
+
+    --color-popover: #ffffff;
+    --color-popover-foreground: #0f172a;
+
+    --color-primary: #4f46e5;
+    /* indigo-600 */
+    --color-primary-foreground: #ffffff;
+
+    --color-secondary: #f1f5f9;
+    /* slate-100 */
+    --color-secondary-foreground: #0f172a;
+
+    --color-muted: #f1f5f9;
+    --color-muted-foreground: #64748b;
+    /* slate-500 */
+
+    --color-accent: #f1f5f9;
+    --color-accent-foreground: #0f172a;
+
+    --color-destructive: #ef4444;
+    --color-destructive-foreground: #ffffff;
+
+    --color-border: #e2e8f0;
+    /* slate-200 */
+    --color-input: #e2e8f0;
+    --color-ring: #4f46e5;
+
+    --radius: 0.75rem;
+    /* Rounded corners */
+
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+}
+
+/* Custom Base Styles */
+body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+}
