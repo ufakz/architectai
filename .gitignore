@@ -30,6 +30,3 @@ backend/node_modules
 
 # Metadata
 metadata.json
-
-# Package-lock
-package-lock.json
