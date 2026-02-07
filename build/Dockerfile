@@ -5,6 +5,7 @@ COPY package*.json ./
 COPY tsconfig.json ./
 COPY vite.config.ts ./
 COPY src ./src
+COPY public ./public
 COPY index.html ./
 COPY postcss.config.js ./
 COPY tailwind.config.js ./
