@@ -36,9 +36,8 @@ if (!GITHUB_CLIENT_ID) {
     process.exit(1);
 }
 
-// Middleware
 app.use(cors({
-    origin: FRONTEND_URL,
+    origin: process.env.NODE_ENV === 'production' ? true : FRONTEND_URL,
     credentials: true,
 }));
 app.use(express.json());

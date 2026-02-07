@@ -7,7 +7,7 @@ import { GitHubAuth, GitHubRepo, GitHubUser, Project, ProjectMetadata, VersionMe
 import { DiagramVersion } from '../types';
 
 // Backend URL for device flow - configurable via env
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080';
 const GITHUB_API = 'https://api.github.com';
 
 // Topic used to identify ArchitectAI repositories

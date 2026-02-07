@@ -5,6 +5,7 @@ steps:
     args: [
       'build',
       '--build-arg', 'GEMINI_API_KEY=${_GEMINI_API_KEY}',
+      '--build-arg', 'VITE_BACKEND_URL=',
       '-t', '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/${_SERVICE_NAME}:$SHORT_SHA',
       '-f', 'build/Dockerfile',
       '.'
@@ -38,10 +39,13 @@ steps:
 images:
   - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/${_SERVICE_NAME}:$SHORT_SHA'
 
+options:
+    logging: CLOUD_LOGGING_ONLY
+
 substitutions:
-    _REGION: europe-west1
-    _AR_REPO: architectai-repo 
-    _SERVICE_NAME: architectai-service
+    _REGION: REGION
+    _AR_REPO: REPO
+    _SERVICE_NAME: SERVICE_NAME
     _GITHUB_CLIENT_ID: GITHUB_CLIENT_ID
     _FRONTEND_URL: FRONTEND_URL
     _GEMINI_API_KEY: GEMINI_API_KEY
