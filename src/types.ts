@@ -1,4 +1,3 @@
-// Simplified app mode - canvas-centric with optional views
 export enum AppMode {
   PROJECT_SELECT = 'PROJECT_SELECT', // Project selection screen
   CANVAS = 'CANVAS',      // Primary drawing mode

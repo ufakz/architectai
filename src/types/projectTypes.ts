@@ -1,4 +1,3 @@
-// Project management types for GitHub integration
 
 export interface GitHubUser {
     login: string;

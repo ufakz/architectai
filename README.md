@@ -12,6 +12,16 @@ AIChitect is an intelligent, AI-powered tool that transforms your rough software
 - **GitHub Integration**: Export your architecture and implementation plans directly to a new GitHub repository with OAuth device flow authentication.
 - **Gemini Powered**: Built on top of Google's powerful GenAI models for deep technical understanding.
 
+## Architecture
+
+![Architecture Diagram](diagrams/architecture.png)
+
+## Application Flow
+
+How the application transforms sketches into code:
+
+![Application Flow](diagrams/sequence.png)
+
 ## Tech Stack
 
 ### Frontend

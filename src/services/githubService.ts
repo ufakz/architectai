@@ -1,29 +1,17 @@
-/**
- * GitHub API Service for Aichitect
- * Handles GitHub App Device Flow authentication, repository operations, and artifact storage
- */
 
 import { GitHubAuth, GitHubRepo, GitHubUser, Project, ProjectMetadata, VersionMetadata } from '../types/projectTypes';
 import { DiagramVersion } from '../types';
 
-// Backend URL for device flow - configurable via env
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 const GITHUB_API = 'https://api.github.com';
 
-// Topic used to identify Aichitect repositories
 const AICHITECT_TOPIC = 'aichitect-project';
 
-/**
- * Storage keys for localStorage
- */
 const STORAGE_KEYS = {
     AUTH: 'aichitect_github_auth',
     CURRENT_PROJECT: 'aichitect_current_project',
 };
 
-/**
- * Get stored GitHub auth from localStorage
- */
 export function getStoredAuth(): GitHubAuth | null {
     try {
         const stored = localStorage.getItem(STORAGE_KEYS.AUTH);
@@ -33,23 +21,14 @@ export function getStoredAuth(): GitHubAuth | null {
     }
 }
 
-/**
- * Store GitHub auth in localStorage
- */
 export function storeAuth(auth: GitHubAuth): void {
     localStorage.setItem(STORAGE_KEYS.AUTH, JSON.stringify(auth));
 }
 
-/**
- * Clear stored auth
- */
 export function clearAuth(): void {
     localStorage.removeItem(STORAGE_KEYS.AUTH);
 }
 
-/**
- * Get stored current project
- */
 export function getStoredProject(): Project | null {
     try {
         const stored = localStorage.getItem(STORAGE_KEYS.CURRENT_PROJECT);
@@ -59,23 +38,14 @@ export function getStoredProject(): Project | null {
     }
 }
 
-/**
- * Store current project
- */
 export function storeProject(project: Project): void {
     localStorage.setItem(STORAGE_KEYS.CURRENT_PROJECT, JSON.stringify(project));
 }
 
-/**
- * Clear stored project
- */
 export function clearProject(): void {
     localStorage.removeItem(STORAGE_KEYS.CURRENT_PROJECT);
 }
 
-/**
- * Device flow state returned when initiating auth
- */
 export interface DeviceFlowState {
     deviceCode: string;
     userCode: string;
@@ -84,10 +54,6 @@ export interface DeviceFlowState {
     interval: number;
 }
 
-/**
- * Step 1: Request a device code to start the authentication flow
- * Returns codes that the user needs to enter on GitHub
- */
 export async function requestDeviceCode(): Promise<DeviceFlowState> {
     const response = await fetch(`${BACKEND_URL}/auth/device/code`, {
         method: 'POST',
@@ -102,10 +68,6 @@ export async function requestDeviceCode(): Promise<DeviceFlowState> {
     return response.json();
 }
 
-/**
- * Step 2: Poll for access token after user authorizes
- * Returns the status of the authorization
- */
 export async function pollForToken(deviceCode: string): Promise<{
     status: 'pending' | 'slow_down' | 'complete';
     accessToken?: string;
@@ -125,10 +87,6 @@ export async function pollForToken(deviceCode: string): Promise<{
     return response.json();
 }
 
-/**
- * Complete the device flow authentication
- * Handles the polling loop internally
- */
 export async function completeDeviceFlow(
     deviceCode: string,
     interval: number,
@@ -164,9 +122,6 @@ export async function completeDeviceFlow(
     }
 }
 
-/**
- * Fetch authenticated GitHub user info
- */
 async function fetchGitHubUser(accessToken: string): Promise<GitHubUser> {
     const response = await fetch(`${GITHUB_API}/user`, {
         headers: {
@@ -187,9 +142,6 @@ async function fetchGitHubUser(accessToken: string): Promise<GitHubUser> {
     };
 }
 
-/**
- * Create a new GitHub repository for an Aichitect project
- */
 export async function createRepository(
     auth: GitHubAuth,
     projectName: string,
@@ -237,9 +189,6 @@ export async function createRepository(
     };
 }
 
-/**
- * Add aichitect topic to repository for identification
- */
 async function addAichitectTopic(auth: GitHubAuth, owner: string, repo: string): Promise<void> {
     await fetch(`${GITHUB_API}/repos/${owner}/${repo}/topics`, {
         method: 'PUT',
@@ -254,11 +203,7 @@ async function addAichitectTopic(auth: GitHubAuth, owner: string, repo: string):
     });
 }
 
-/**
- * List user's Aichitect repositories
- */
 export async function listAichitectRepos(auth: GitHubAuth): Promise<GitHubRepo[]> {
-    // Search for repos with the aichitect topic
     const response = await fetch(
         `${GITHUB_API}/search/repositories?q=user:${auth.user.login}+topic:${AICHITECT_TOPIC}`,
         {
@@ -288,9 +233,6 @@ export async function listAichitectRepos(auth: GitHubAuth): Promise<GitHubRepo[]
     }));
 }
 
-/**
- * Initialize a new project in a repository
- */
 export async function initializeProject(
     auth: GitHubAuth,
     repo: GitHubRepo,
@@ -338,11 +280,7 @@ export async function initializeProject(
     return project;
 }
 
-/**
- * Load project from a repository
- */
 export async function loadProject(auth: GitHubAuth, repo: GitHubRepo): Promise<{ project: Project; versions: DiagramVersion[] }> {
-    // Fetch project metadata
     const metadataContent = await getFileContent(auth, repo.fullName, '.aichitect/project.json');
     const metadata: ProjectMetadata = JSON.parse(metadataContent);
 
@@ -368,12 +306,8 @@ export async function loadProject(auth: GitHubAuth, repo: GitHubRepo): Promise<{
     return { project, versions };
 }
 
-/**
- * Load all versions from a repository
- */
 async function loadVersions(auth: GitHubAuth, repoFullName: string): Promise<DiagramVersion[]> {
     try {
-        // List contents of versions directory
         const response = await fetch(`${GITHUB_API}/repos/${repoFullName}/contents/versions`, {
             headers: {
                 Authorization: `Bearer ${auth.accessToken}`,
@@ -444,9 +378,6 @@ async function loadVersions(auth: GitHubAuth, repoFullName: string): Promise<Dia
     }
 }
 
-/**
- * Save a version to the repository
- */
 export async function saveVersion(
     auth: GitHubAuth,
     project: Project,
@@ -549,9 +480,6 @@ export async function saveVersion(
     );
 }
 
-/**
- * Create or update a file in a repository
- */
 async function createOrUpdateFile(
     auth: GitHubAuth,
     repoFullName: string,
@@ -602,9 +530,6 @@ async function createOrUpdateFile(
     }
 }
 
-/**
- * Get file content from repository
- */
 async function getFileContent(auth: GitHubAuth, repoFullName: string, path: string): Promise<string> {
     const response = await fetch(`${GITHUB_API}/repos/${repoFullName}/contents/${path}`, {
         headers: {
@@ -621,9 +546,6 @@ async function getFileContent(auth: GitHubAuth, repoFullName: string, path: stri
     return decodeURIComponent(escape(atob(data.content)));
 }
 
-/**
- * Get file as base64 data URL
- */
 async function getFileAsBase64(auth: GitHubAuth, repoFullName: string, path: string): Promise<string> {
     const response = await fetch(`${GITHUB_API}/repos/${repoFullName}/contents/${path}`, {
         headers: {

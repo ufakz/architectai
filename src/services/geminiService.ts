@@ -1,11 +1,7 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { ComponentSpec } from "../types";
 
-/**
- * Creates a fresh Gemini client instance.
- * MUST be called inside functions to ensure it picks up the latest process.env.API_KEY
- * which might be injected after user selection.
- */
+
 const getAiClient = () => {
   // @ts-ignore
   return new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -17,10 +13,7 @@ const getAiClient = () => {
 // ============================================================================
 
 const PROMPTS = {
-  /**
-   * Prompt for refining hand-drawn sketches into professional diagrams
-   * Version: 1.0
-   */
+
   REFINE_SKETCH: {
     version: "1.0",
     role: "Expert Technical Illustrator & Software Architect",
@@ -96,10 +89,6 @@ Transform the provided hand-drawn sketch(es) into a single, professional, high-f
 `.trim(),
   },
 
-  /**
-   * Prompt for analyzing diagram components
-   * Version: 1.0
-   */
   ANALYZE_COMPONENTS: {
     version: "1.0",
     role: "Senior Software Architect",
@@ -263,26 +252,15 @@ project-root/
   },
 } as const;
 
-// ============================================================================
-// GENERATION CONFIG
-// Temperature = 0 for deterministic, reproducible outputs
-// ============================================================================
 
 const GENERATION_CONFIG = {
-  // Temperature 0 = fully deterministic outputs
   temperature: 0,
-  // Top-p and top-k for additional control
   topP: 1,
   topK: 1,
 } as const;
 
-// ============================================================================
-// SERVICE FUNCTIONS
-// ============================================================================
 
-/**
- * Refines a rough sketch into a professional diagram using 'gemini-3-pro-image-preview'.
- */
+
 export const refineSketch = async (base64Images: string[]): Promise<string> => {
   const ai = getAiClient();
 
@@ -433,10 +411,6 @@ export const generateBuildPlan = async (
   }
 };
 
-/**
- * Process a version in the background (refine + analyze).
- * This chains the refinement and analysis steps together with progress callbacks.
- */
 export const processVersionInBackground = async (
   images: string[],
   onProgress: (status: 'refining' | 'specifying' | 'complete') => void
@@ -461,9 +435,6 @@ export const processVersionInBackground = async (
   return { refinedImage, specs };
 };
 
-// ============================================================================
-// PROMPT METADATA EXPORTS (for debugging/logging)
-// ============================================================================
 
 export const getPromptVersions = () => ({
   refineSketch: PROMPTS.REFINE_SKETCH.version,
