@@ -25,6 +25,8 @@ dist-ssr
 
 # Env files
 .env
+backend/.env
+backend/node_modules
 
 # Metadata
 metadata.json

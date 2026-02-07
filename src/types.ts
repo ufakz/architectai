@@ -1,9 +1,14 @@
 // Simplified app mode - canvas-centric with optional views
 export enum AppMode {
+  PROJECT_SELECT = 'PROJECT_SELECT', // Project selection screen
   CANVAS = 'CANVAS',      // Primary drawing mode
   HISTORY = 'HISTORY',    // Viewing version history/timelapse
   BUILD = 'BUILD',        // Final build plan view
 }
+
+// Re-export project types
+export * from './types/projectTypes';
+
 
 export interface Diagram {
   id: string;

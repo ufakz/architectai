@@ -38,8 +38,13 @@ export const Button: React.FC<ButtonProps> = ({
     );
 };
 
-export const Card: React.FC<{ children: React.ReactNode, className?: string }> = ({ children, className = '' }) => (
-    <div className={`bg-card text-card-foreground rounded-2xl border border-slate-200/60 shadow-sm ${className}`}>
+interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
+    children: React.ReactNode;
+}
+
+export const Card: React.FC<CardProps> = ({ children, className = '', ...props }) => (
+    <div className={`bg-card text-card-foreground rounded-2xl border border-slate-200/60 shadow-sm ${className}`} {...props}>
         {children}
     </div>
 );
+

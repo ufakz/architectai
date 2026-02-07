@@ -1,5 +1,5 @@
-import React, { useRef, useEffect, useState } from 'react';
-import { Eraser, Pencil, Trash2, Square, ArrowRight, Type, Circle as CircleIcon } from 'lucide-react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
+import { Eraser, Pencil, Trash2, Square, ArrowRight, Type, Circle as CircleIcon, Move, Undo2 } from 'lucide-react';
 import { Button, Card } from '../../components/ui';
 
 interface DrawingCanvasProps {
@@ -9,13 +9,23 @@ interface DrawingCanvasProps {
     buttonLabel?: string;
 }
 
-type ToolType = 'pen' | 'eraser' | 'rect' | 'circle' | 'arrow' | 'text';
+type ToolType = 'select' | 'pen' | 'eraser' | 'rect' | 'circle' | 'arrow' | 'text';
+
+// Text size presets
+const TEXT_SIZES = {
+    small: { label: 'S', size: 16 },
+    medium: { label: 'M', size: 24 },
+    large: { label: 'L', size: 36 },
+} as const;
+
+type TextSizeKey = keyof typeof TEXT_SIZES;
 
 const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ onExport, initialImage, onChange, buttonLabel = 'Process Sketch' }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [isDrawing, setIsDrawing] = useState(false);
     const [tool, setTool] = useState<ToolType>('pen');
     const [lineWidth, setLineWidth] = useState(3);
+    const [textSize, setTextSize] = useState<TextSizeKey>('medium');
 
     // For shapes
     const startPos = useRef<{ x: number, y: number } | null>(null);
@@ -24,6 +34,15 @@ const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ onExport, initialImage, o
     // For text
     const [activeText, setActiveText] = useState<{ x: number, y: number, screenX: number, screenY: number, value: string } | null>(null);
     const textInputRef = useRef<HTMLInputElement>(null);
+
+    // For select/move tool
+    const [isDragging, setIsDragging] = useState(false);
+    const dragStartPos = useRef<{ x: number, y: number } | null>(null);
+    const canvasBeforeDrag = useRef<ImageData | null>(null);
+
+    // Undo stack
+    const [history, setHistory] = useState<ImageData[]>([]);
+    const maxHistory = 20;
 
     useEffect(() => {
         const canvas = canvasRef.current;
@@ -64,6 +83,39 @@ const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ onExport, initialImage, o
         }
     }, [activeText]);
 
+    const saveToHistory = useCallback(() => {
+        const canvas = canvasRef.current;
+        const ctx = canvas?.getContext('2d');
+        if (!canvas || !ctx) return;
+
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        setHistory(prev => {
+            const newHistory = [...prev, imageData];
+            if (newHistory.length > maxHistory) {
+                newHistory.shift();
+            }
+            return newHistory;
+        });
+    }, []);
+
+    const undo = useCallback(() => {
+        if (history.length === 0) return;
+
+        const canvas = canvasRef.current;
+        const ctx = canvas?.getContext('2d');
+        if (!canvas || !ctx) return;
+
+        const newHistory = [...history];
+        const lastState = newHistory.pop();
+        if (lastState) {
+            ctx.putImageData(lastState, 0, 0);
+            setHistory(newHistory);
+            if (onChange) {
+                onChange(canvas.toDataURL('image/png'));
+            }
+        }
+    }, [history, onChange]);
+
     const getCoordinates = (e: React.MouseEvent | React.TouchEvent) => {
         const canvas = canvasRef.current;
         if (!canvas) return { x: 0, y: 0, screenX: 0, screenY: 0 };
@@ -90,12 +142,30 @@ const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ onExport, initialImage, o
     };
 
     const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
+        // Handle select/move tool
+        if (tool === 'select') {
+            e.preventDefault();
+            const { x, y } = getCoordinates(e);
+            setIsDragging(true);
+            dragStartPos.current = { x, y };
+
+            const canvas = canvasRef.current;
+            const ctx = canvas?.getContext('2d');
+            if (canvas && ctx) {
+                // Save current canvas state before dragging
+                saveToHistory();
+                canvasBeforeDrag.current = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            }
+            return;
+        }
+
         // If we are in text mode, handle placement or commit
         if (tool === 'text') {
             e.preventDefault(); // Prevent default to stop focus loss issues
             if (activeText) {
                 commitText();
             } else {
+                saveToHistory();
                 const { x, y, screenX, screenY } = getCoordinates(e);
                 setActiveText({ x, y, screenX, screenY, value: '' });
             }
@@ -110,6 +180,7 @@ const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ onExport, initialImage, o
         }
 
         e.preventDefault();
+        saveToHistory();
         setIsDrawing(true);
         const { x, y } = getCoordinates(e);
         startPos.current = { x, y };
@@ -130,6 +201,34 @@ const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ onExport, initialImage, o
     };
 
     const draw = (e: React.MouseEvent | React.TouchEvent) => {
+        // Handle select/move tool dragging
+        if (tool === 'select' && isDragging) {
+            e.preventDefault();
+            const { x, y } = getCoordinates(e);
+            const canvas = canvasRef.current;
+            const ctx = canvas?.getContext('2d');
+
+            if (!canvas || !ctx || !dragStartPos.current || !canvasBeforeDrag.current) return;
+
+            const dx = x - dragStartPos.current.x;
+            const dy = y - dragStartPos.current.y;
+
+            // Clear and offset the entire canvas content
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Create a temporary canvas to hold the original image
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = canvas.width;
+            tempCanvas.height = canvas.height;
+            const tempCtx = tempCanvas.getContext('2d');
+            if (tempCtx) {
+                tempCtx.putImageData(canvasBeforeDrag.current, 0, 0);
+                ctx.drawImage(tempCanvas, dx, dy);
+            }
+            return;
+        }
+
         if (!isDrawing) return;
         e.preventDefault(); // Prevent scrolling
 
@@ -178,11 +277,23 @@ const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ onExport, initialImage, o
         ctx.lineTo(toX, toY);
         ctx.lineTo(toX - headLength * Math.cos(angle - Math.PI / 6), toY - headLength * Math.sin(angle - Math.PI / 6));
         ctx.moveTo(toX, toY);
-        ctx.lineTo(toX - headLength * Math.cos(angle + Math.PI / 6), toY - headLength * Math.sin(angle + Math.PI / 6));
+        ctx.lineTo(toX - headLength * Math.cos(angle + Math.PI / 6), toY + headLength * Math.sin(angle + Math.PI / 6));
         ctx.stroke();
     };
 
     const stopDrawing = () => {
+        // Handle select/move tool
+        if (tool === 'select' && isDragging) {
+            setIsDragging(false);
+            dragStartPos.current = null;
+            canvasBeforeDrag.current = null;
+
+            if (onChange && canvasRef.current) {
+                onChange(canvasRef.current.toDataURL('image/png'));
+            }
+            return;
+        }
+
         if (isDrawing) {
             setIsDrawing(false);
             const ctx = canvasRef.current?.getContext('2d');
@@ -204,9 +315,10 @@ const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ onExport, initialImage, o
         if (activeText.value.trim()) {
             const ctx = canvasRef.current.getContext('2d');
             if (ctx) {
-                ctx.font = `${lineWidth * 5 + 10}px Inter, sans-serif`; // Scale font with line width
+                const fontSize = TEXT_SIZES[textSize].size;
+                ctx.font = `${fontSize}px Inter, sans-serif`;
                 ctx.fillStyle = '#0f172a';
-                ctx.fillText(activeText.value, activeText.x, activeText.y + (lineWidth * 5 + 10)); // Adjust baseline
+                ctx.fillText(activeText.value, activeText.x, activeText.y + fontSize);
 
                 if (onChange) {
                     onChange(canvasRef.current.toDataURL('image/png'));
@@ -220,6 +332,7 @@ const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ onExport, initialImage, o
         const canvas = canvasRef.current;
         const ctx = canvas?.getContext('2d');
         if (canvas && ctx) {
+            saveToHistory();
             ctx.fillStyle = '#ffffff';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             if (onChange) {
@@ -234,11 +347,33 @@ const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ onExport, initialImage, o
         }
     };
 
+    const getCursor = () => {
+        switch (tool) {
+            case 'select': return 'move';
+            case 'text': return 'text';
+            case 'eraser': return 'cell';
+            default: return 'crosshair';
+        }
+    };
+
     return (
         <Card className="flex flex-col h-full w-full overflow-hidden shadow-lg shadow-slate-200/50 border-0 relative">
             {/* Toolbar */}
-            <div className="flex items-center justify-between p-4 bg-white border-b border-slate-100 z-10 relative">
-                <div className="flex gap-2 items-center flex-wrap">
+            <div className="flex items-center justify-between p-3 bg-white border-b border-slate-100 z-10 relative">
+                <div className="flex gap-1 items-center flex-wrap">
+                    {/* Select/Move Tool */}
+                    <Button
+                        onClick={() => setTool('select')}
+                        variant={tool === 'select' ? 'primary' : 'ghost'}
+                        title="Select & Move"
+                        size="sm"
+                    >
+                        <Move size={18} />
+                    </Button>
+
+                    <div className="w-px h-6 bg-slate-200 mx-1" />
+
+                    {/* Drawing Tools */}
                     <Button
                         onClick={() => setTool('pen')}
                         variant={tool === 'pen' ? 'primary' : 'ghost'}
@@ -287,33 +422,77 @@ const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ onExport, initialImage, o
                     >
                         <Eraser size={18} />
                     </Button>
-                    <div className="w-px h-6 bg-slate-200 mx-2" />
-                    <input
-                        type="range"
-                        min="1"
-                        max="10"
-                        value={lineWidth}
-                        onChange={(e) => setLineWidth(Number(e.target.value))}
-                        className="w-24 accent-primary my-auto cursor-pointer"
-                        title="Brush/Font Size"
-                    />
+
+                    <div className="w-px h-6 bg-slate-200 mx-1" />
+
+                    {/* Line Width (for pen/shapes) */}
+                    {(tool === 'pen' || tool === 'rect' || tool === 'circle' || tool === 'arrow') && (
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs text-slate-400">Size</span>
+                            <input
+                                type="range"
+                                min="1"
+                                max="10"
+                                value={lineWidth}
+                                onChange={(e) => setLineWidth(Number(e.target.value))}
+                                className="w-20 accent-primary cursor-pointer"
+                                title="Line Width"
+                            />
+                        </div>
+                    )}
+
+                    {/* Text Size Selector */}
+                    {tool === 'text' && (
+                        <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-0.5">
+                            {(Object.keys(TEXT_SIZES) as TextSizeKey[]).map((size) => (
+                                <button
+                                    key={size}
+                                    onClick={() => setTextSize(size)}
+                                    className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${textSize === size
+                                            ? 'bg-white text-primary shadow-sm'
+                                            : 'text-slate-500 hover:text-slate-700'
+                                        }`}
+                                    title={`${size.charAt(0).toUpperCase() + size.slice(1)} Text (${TEXT_SIZES[size].size}px)`}
+                                >
+                                    {TEXT_SIZES[size].label}
+                                </button>
+                            ))}
+                        </div>
+                    )}
                 </div>
-                <div className="flex gap-2">
+
+                <div className="flex gap-1">
+                    {/* Undo */}
+                    <Button
+                        onClick={undo}
+                        variant="ghost"
+                        title="Undo (Ctrl+Z)"
+                        size="sm"
+                        disabled={history.length === 0}
+                        className="text-slate-500"
+                    >
+                        <Undo2 size={16} />
+                    </Button>
+
+                    {/* Clear */}
                     <Button
                         onClick={clearCanvas}
                         variant="ghost"
-                        className="text-red-500 hover:text-red-600 hover:bg-red-50 gap-2 px-3"
+                        className="text-red-500 hover:text-red-600 hover:bg-red-50 gap-1.5 px-2"
                         title="Clear Canvas"
                         size="sm"
                     >
                         <Trash2 size={16} />
-                        <span className="font-medium">Erase All</span>
+                        <span className="font-medium hidden sm:inline">Clear</span>
                     </Button>
                 </div>
             </div>
 
             {/* Canvas Area */}
-            <div className="flex-1 relative cursor-crosshair overflow-hidden touch-none bg-white">
+            <div
+                className="flex-1 relative overflow-hidden touch-none bg-white"
+                style={{ cursor: getCursor() }}
+            >
                 {/* Dot grid for minimalist feel */}
                 <div className="absolute inset-0 opacity-40 pointer-events-none"
                     style={{
@@ -352,26 +531,26 @@ const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ onExport, initialImage, o
                             position: 'absolute',
                             left: activeText.screenX,
                             top: activeText.screenY,
-                            zIndex: 50, // Higher z-index to ensure it is above everything
+                            zIndex: 50,
                             fontFamily: 'Inter, sans-serif',
-                            fontSize: `${lineWidth * 5 + 10}px`,
+                            fontSize: `${TEXT_SIZES[textSize].size}px`,
                             color: '#0f172a',
                             background: 'white',
-                            border: '1px solid #4f46e5',
-                            borderRadius: '4px',
+                            border: '2px solid #4f46e5',
+                            borderRadius: '6px',
                             outline: 'none',
-                            padding: '4px 8px',
-                            minWidth: '100px',
+                            padding: '4px 10px',
+                            minWidth: '120px',
                             transform: 'translateY(-50%)',
-                            boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)', // shadow-md
+                            boxShadow: '0 4px 12px rgb(0 0 0 / 0.15)',
                         }}
                         placeholder="Type here..."
                         autoFocus
                     />
                 )}
 
-                <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-white/90 shadow-sm border border-slate-200 text-slate-500 text-xs px-4 py-1.5 rounded-full pointer-events-none font-medium z-0">
-                    Draw your architecture plan
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white/90 shadow-sm border border-slate-200 text-slate-400 text-xs px-4 py-1.5 rounded-full pointer-events-none font-medium z-0">
+                    {tool === 'select' ? 'Click and drag to move content' : 'Draw your architecture'}
                 </div>
             </div>
 

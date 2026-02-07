@@ -1,24 +1,48 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { AppMode, ComponentSpec, GenerationState, Diagram, DiagramVersion } from './types';
+import { AppMode, ComponentSpec, GenerationState, Diagram, DiagramVersion, GitHubAuth, GitHubRepo, Project } from './types';
 import { processVersionInBackground, generateBuildPlan } from './services/geminiService';
+import {
+  getStoredAuth,
+  getStoredProject,
+  clearAuth,
+  clearProject,
+  createRepository,
+  initializeProject,
+  loadProject,
+  saveVersion,
+  storeProject,
+} from './services/githubService';
 import { useVersionStore } from './services/versionStore';
 
 // Layouts & UI
 import { MainLayout } from './layouts';
 import { Button, Card } from './components/ui';
-import { ArrowLeft, Key, AlertCircle, Plus, Layout, Layers, X, History, Clock, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Key, AlertCircle, Plus, Layout, Layers, X, History, Clock, ChevronRight, Github, FolderOpen } from 'lucide-react';
 
 // Features / Components
 import DrawingCanvas from './features/sketch/DrawingCanvas';
 import VersionHistoryPanel from './features/history/VersionHistoryPanel';
 import BuildView from './features/build/BuildView';
 import ProcessingStatus from './components/ProcessingStatus';
+import { ProjectSelector, NewProjectDialog, ContinueProjectDialog, DeviceFlowDialog } from './features/project';
 
 function App() {
   const [hasApiKey, setHasApiKey] = useState(false);
   const [isCheckingKey, setIsCheckingKey] = useState(true);
 
-  const [mode, setMode] = useState<AppMode>(AppMode.CANVAS);
+  // GitHub & Project state
+  const [githubAuth, setGithubAuth] = useState<GitHubAuth | null>(null);
+  const [currentProject, setCurrentProject] = useState<Project | null>(null);
+
+  // Dialog states
+  const [showDeviceFlowDialog, setShowDeviceFlowDialog] = useState(false);
+  const [showNewProjectDialog, setShowNewProjectDialog] = useState(false);
+  const [showContinueDialog, setShowContinueDialog] = useState(false);
+  const [isCreatingProject, setIsCreatingProject] = useState(false);
+  const [isLoadingProject, setIsLoadingProject] = useState(false);
+
+  // App mode - starts with project selection if no project
+  const [mode, setMode] = useState<AppMode>(AppMode.PROJECT_SELECT);
 
   // State for multiple diagrams
   const [diagrams, setDiagrams] = useState<Diagram[]>([
@@ -36,6 +60,21 @@ function App() {
 
   // Current processing status for the status indicator
   const [processingStatus, setProcessingStatus] = useState<DiagramVersion['status'] | null>(null);
+
+  // Initialize auth and project from localStorage
+  useEffect(() => {
+    const storedAuth = getStoredAuth();
+    const storedProject = getStoredProject();
+
+    if (storedAuth) {
+      setGithubAuth(storedAuth);
+    }
+
+    if (storedProject) {
+      setCurrentProject(storedProject);
+      setMode(AppMode.CANVAS);
+    }
+  }, []);
 
   useEffect(() => {
     const checkKey = async () => {
@@ -79,6 +118,82 @@ function App() {
     setProcessingStatus('error');
   }, [versionStore]);
 
+  // GitHub handlers
+  const handleConnectGitHub = () => {
+    setShowDeviceFlowDialog(true);
+  };
+
+  const handleDisconnectGitHub = () => {
+    clearAuth();
+    clearProject();
+    setGithubAuth(null);
+    setCurrentProject(null);
+    setMode(AppMode.PROJECT_SELECT);
+  };
+
+  const handleDeviceFlowSuccess = (auth: GitHubAuth) => {
+    setGithubAuth(auth);
+    setShowDeviceFlowDialog(false);
+  };
+
+  // Project handlers
+  const handleCreateProject = async (name: string, description: string, isPrivate: boolean) => {
+    if (!githubAuth) return;
+
+    setIsCreatingProject(true);
+    setGenState({ isLoading: false, error: null });
+
+    try {
+      // Create GitHub repo
+      const repo = await createRepository(githubAuth, name, description, isPrivate);
+
+      // Initialize project in repo
+      const project = await initializeProject(githubAuth, repo, name, description);
+
+      setCurrentProject(project);
+      setShowNewProjectDialog(false);
+      setMode(AppMode.CANVAS);
+
+      // Reset diagram state for new project
+      setDiagrams([{ id: 'main', name: 'Main Architecture', dataUrl: null, type: 'main' }]);
+      setActiveDiagramId('main');
+    } catch (err: any) {
+      setGenState({ isLoading: false, error: err.message || 'Failed to create project' });
+    } finally {
+      setIsCreatingProject(false);
+    }
+  };
+
+  const handleSelectProject = async (repo: GitHubRepo) => {
+    if (!githubAuth) return;
+
+    setIsLoadingProject(true);
+    setGenState({ isLoading: false, error: null });
+
+    try {
+      const { project, versions } = await loadProject(githubAuth, repo);
+
+      setCurrentProject(project);
+
+      // Restore versions if any
+      if (versions.length > 0) {
+        // Load the last version's diagrams
+        const lastVersion = versions[versions.length - 1];
+        if (lastVersion.diagrams.length > 0) {
+          setDiagrams(lastVersion.diagrams);
+          setActiveDiagramId(lastVersion.diagrams[0].id);
+        }
+      }
+
+      setShowContinueDialog(false);
+      setMode(AppMode.CANVAS);
+    } catch (err: any) {
+      setGenState({ isLoading: false, error: err.message || 'Failed to load project' });
+    } finally {
+      setIsLoadingProject(false);
+    }
+  };
+
   /**
    * Handle "Update" click from canvas - creates a new version and starts background processing
    */
@@ -108,12 +223,36 @@ function App() {
       await processVersionInBackground(images, (status) => {
         versionStore.updateVersion(newVersion.id, { status });
         setProcessingStatus(status);
-      }).then(({ refinedImage, specs }) => {
+      }).then(async ({ refinedImage, specs }) => {
+        const updatedVersion = {
+          ...newVersion,
+          refinedImage,
+          specs,
+          status: 'complete' as const,
+        };
+
         versionStore.updateVersion(newVersion.id, {
           refinedImage,
           specs,
           status: 'complete'
         });
+
+        // Save to GitHub if we have a project
+        if (githubAuth && currentProject) {
+          try {
+            await saveVersion(githubAuth, currentProject, {
+              ...newVersion,
+              refinedImage,
+              specs,
+              status: 'complete',
+              diagrams: validDiagrams,
+            });
+          } catch (err) {
+            console.error('Failed to save to GitHub:', err);
+            // Don't fail the whole operation, just log
+          }
+        }
+
         setProcessingStatus(null);
       });
     } catch (err: any) {
@@ -145,6 +284,18 @@ function App() {
       // Cache the plan in the version
       versionStore.updateVersion(version.id, { buildPlan: plan });
 
+      // Save updated version to GitHub
+      if (githubAuth && currentProject) {
+        try {
+          await saveVersion(githubAuth, currentProject, {
+            ...version,
+            buildPlan: plan,
+          });
+        } catch (err) {
+          console.error('Failed to save build plan to GitHub:', err);
+        }
+      }
+
       setGenState(prev => ({ ...prev, isLoading: false }));
     } catch (err: any) {
       handleApiError(err);
@@ -165,6 +316,15 @@ function App() {
     setBuildPlan('');
     setMode(AppMode.CANVAS);
     setGenState({ isLoading: false, error: null });
+  };
+
+  const handleCloseProject = () => {
+    clearProject();
+    setCurrentProject(null);
+    setMode(AppMode.PROJECT_SELECT);
+    setDiagrams([{ id: 'main', name: 'Main Architecture', dataUrl: null, type: 'main' }]);
+    setActiveDiagramId('main');
+    setBuildPlan('');
   };
 
   const activeDiagram = diagrams.find(d => d.id === activeDiagramId);
@@ -232,8 +392,74 @@ function App() {
     );
   }
 
+  // Project selection mode
+  if (mode === AppMode.PROJECT_SELECT) {
+    return (
+      <MainLayout onSelectKey={handleSelectKey}>
+        <ProjectSelector
+          auth={githubAuth}
+          onConnectGitHub={handleConnectGitHub}
+          onDisconnect={handleDisconnectGitHub}
+          onNewProject={() => setShowNewProjectDialog(true)}
+          onContinueProject={() => setShowContinueDialog(true)}
+        />
+
+        {/* Device Flow Dialog */}
+        <DeviceFlowDialog
+          isOpen={showDeviceFlowDialog}
+          onClose={() => setShowDeviceFlowDialog(false)}
+          onSuccess={handleDeviceFlowSuccess}
+        />
+
+        {/* New Project Dialog */}
+        <NewProjectDialog
+          isOpen={showNewProjectDialog}
+          isLoading={isCreatingProject}
+          onClose={() => setShowNewProjectDialog(false)}
+          onCreate={handleCreateProject}
+        />
+
+        {/* Continue Project Dialog */}
+        {githubAuth && (
+          <ContinueProjectDialog
+            isOpen={showContinueDialog}
+            auth={githubAuth}
+            onClose={() => setShowContinueDialog(false)}
+            onSelect={handleSelectProject}
+          />
+        )}
+      </MainLayout>
+    );
+  }
+
   return (
     <MainLayout onSelectKey={handleSelectKey}>
+      {/* Project Header */}
+      {currentProject && (
+        <div className="flex items-center justify-between mb-4 px-1">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
+              <FolderOpen size={16} className="text-primary" />
+            </div>
+            <div>
+              <h2 className="text-sm font-semibold text-slate-900">{currentProject.name}</h2>
+              <a
+                href={currentProject.githubRepo.htmlUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-slate-400 hover:text-primary flex items-center gap-1"
+              >
+                <Github size={10} />
+                {currentProject.githubRepo.fullName}
+              </a>
+            </div>
+          </div>
+          <Button variant="ghost" size="sm" onClick={handleCloseProject}>
+            Close Project
+          </Button>
+        </div>
+      )}
+
       {/* Error Notification */}
       {genState.error && (
         <div className="mb-6 bg-red-50 border border-red-200 text-red-700 p-4 rounded-xl flex items-center justify-between animate-in fade-in slide-in-from-top-4 text-sm font-medium">
