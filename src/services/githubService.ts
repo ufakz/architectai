@@ -1,5 +1,5 @@
 /**
- * GitHub API Service for ArchitectAI
+ * GitHub API Service for Aichitect
  * Handles GitHub App Device Flow authentication, repository operations, and artifact storage
  */
 
@@ -10,15 +10,15 @@ import { DiagramVersion } from '../types';
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 const GITHUB_API = 'https://api.github.com';
 
-// Topic used to identify ArchitectAI repositories
-const ARCHITECTAI_TOPIC = 'architectai-project';
+// Topic used to identify Aichitect repositories
+const AICHITECT_TOPIC = 'aichitect-project';
 
 /**
  * Storage keys for localStorage
  */
 const STORAGE_KEYS = {
-    AUTH: 'architectai_github_auth',
-    CURRENT_PROJECT: 'architectai_current_project',
+    AUTH: 'aichitect_github_auth',
+    CURRENT_PROJECT: 'aichitect_current_project',
 };
 
 /**
@@ -188,7 +188,7 @@ async function fetchGitHubUser(accessToken: string): Promise<GitHubUser> {
 }
 
 /**
- * Create a new GitHub repository for an ArchitectAI project
+ * Create a new GitHub repository for an Aichitect project
  */
 export async function createRepository(
     auth: GitHubAuth,
@@ -208,7 +208,7 @@ export async function createRepository(
         },
         body: JSON.stringify({
             name: repoName,
-            description: `ArchitectAI Project: ${description}`,
+            description: `Aichitect Project: ${description}`,
             private: isPrivate,
             auto_init: true, // Initialize with README
         }),
@@ -221,8 +221,8 @@ export async function createRepository(
 
     const repo = await response.json();
 
-    // Add the architectai topic to identify this repo
-    await addRepoTopic(auth, repo.owner.login, repo.name);
+    // Add the aichitect topic to identify this repo
+    await addAichitectTopic(auth, repo.owner.login, repo.name);
 
     return {
         id: repo.id,
@@ -238,9 +238,9 @@ export async function createRepository(
 }
 
 /**
- * Add architectai topic to repository for identification
+ * Add aichitect topic to repository for identification
  */
-async function addRepoTopic(auth: GitHubAuth, owner: string, repo: string): Promise<void> {
+async function addAichitectTopic(auth: GitHubAuth, owner: string, repo: string): Promise<void> {
     await fetch(`${GITHUB_API}/repos/${owner}/${repo}/topics`, {
         method: 'PUT',
         headers: {
@@ -249,18 +249,18 @@ async function addRepoTopic(auth: GitHubAuth, owner: string, repo: string): Prom
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-            names: [ARCHITECTAI_TOPIC],
+            names: [AICHITECT_TOPIC],
         }),
     });
 }
 
 /**
- * List user's ArchitectAI repositories
+ * List user's Aichitect repositories
  */
-export async function listArchitectAIRepos(auth: GitHubAuth): Promise<GitHubRepo[]> {
-    // Search for repos with the architectai topic
+export async function listAichitectRepos(auth: GitHubAuth): Promise<GitHubRepo[]> {
+    // Search for repos with the aichitect topic
     const response = await fetch(
-        `${GITHUB_API}/search/repositories?q=user:${auth.user.login}+topic:${ARCHITECTAI_TOPIC}`,
+        `${GITHUB_API}/search/repositories?q=user:${auth.user.login}+topic:${AICHITECT_TOPIC}`,
         {
             headers: {
                 Authorization: `Bearer ${auth.accessToken}`,
@@ -310,13 +310,13 @@ export async function initializeProject(
         latestVersionId: null,
     };
 
-    // Create .architectai/project.json
+    // Create .aichitect/project.json
     await createOrUpdateFile(
         auth,
         repo.fullName,
-        '.architectai/project.json',
+        '.aichitect/project.json',
         JSON.stringify(metadata, null, 2),
-        'Initialize ArchitectAI project'
+        'Initialize Aichitect project'
     );
 
     const project: Project = {
@@ -343,7 +343,7 @@ export async function initializeProject(
  */
 export async function loadProject(auth: GitHubAuth, repo: GitHubRepo): Promise<{ project: Project; versions: DiagramVersion[] }> {
     // Fetch project metadata
-    const metadataContent = await getFileContent(auth, repo.fullName, '.architectai/project.json');
+    const metadataContent = await getFileContent(auth, repo.fullName, '.aichitect/project.json');
     const metadata: ProjectMetadata = JSON.parse(metadataContent);
 
     const project: Project = {
@@ -543,7 +543,7 @@ export async function saveVersion(
     await createOrUpdateFile(
         auth,
         repoFullName,
-        '.architectai/project.json',
+        '.aichitect/project.json',
         JSON.stringify(metadata, null, 2),
         'Update project metadata'
     );

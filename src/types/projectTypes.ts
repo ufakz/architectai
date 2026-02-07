@@ -38,7 +38,7 @@ export interface Project {
     updatedAt: number;
 }
 
-// Metadata stored in .architectai/project.json
+// Metadata stored in .aichitect/project.json
 export interface ProjectMetadata {
     version: '1.0';
     projectId: string;

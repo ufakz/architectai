@@ -366,10 +366,12 @@ function App() {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center">
         <Card className="max-w-md w-full p-10 shadow-xl border-slate-200">
-          <div className="w-16 h-16 bg-primary/10 text-primary rounded-2xl flex items-center justify-center mx-auto mb-6">
-            <Key size={32} />
-          </div>
-          <h1 className="text-2xl font-bold text-slate-900 mb-3">ArchitectAI</h1>
+          <img
+            src="/logo.png"
+            alt="Aichitect"
+            className="w-20 h-20 mx-auto mb-6 rounded-2xl shadow-lg"
+          />
+          <h1 className="text-2xl font-bold text-slate-900 mb-3">Aichitect</h1>
           <p className="text-slate-500 mb-8 leading-relaxed">
             Connect your Google Gemini API key to start generating professional software architectures.
           </p>
@@ -385,7 +387,7 @@ function App() {
           </Button>
 
           <div className="mt-8 pt-6 border-t border-slate-100 text-xs text-slate-400">
-            Requires Gemini 2.5 or 3 Pro
+            Powered by AI
           </div>
         </Card>
       </div>
@@ -395,7 +397,7 @@ function App() {
   // Project selection mode
   if (mode === AppMode.PROJECT_SELECT) {
     return (
-      <MainLayout onSelectKey={handleSelectKey}>
+      <MainLayout>
         <ProjectSelector
           auth={githubAuth}
           onConnectGitHub={handleConnectGitHub}
@@ -433,7 +435,7 @@ function App() {
   }
 
   return (
-    <MainLayout onSelectKey={handleSelectKey}>
+    <MainLayout>
       {/* Project Header */}
       {currentProject && (
         <div className="flex items-center justify-between mb-4 px-1">

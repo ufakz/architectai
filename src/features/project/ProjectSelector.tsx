@@ -22,14 +22,16 @@ export default function ProjectSelector({
         <div className="min-h-[600px] flex flex-col items-center justify-center p-8">
             {/* Header */}
             <div className="text-center mb-12">
-                <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-primary/20 to-primary/5 rounded-3xl mb-6 shadow-lg shadow-primary/10">
-                    <Sparkles className="w-10 h-10 text-primary" />
-                </div>
+                <img
+                    src="/logo.png"
+                    alt="Aichitect"
+                    className="w-24 h-24 mx-auto mb-6 rounded-3xl shadow-lg shadow-primary/20"
+                />
                 <h1 className="text-4xl font-bold text-slate-900 mb-3">
-                    ArchitectAI
+                    Aichitect
                 </h1>
                 <p className="text-lg text-slate-500 max-w-md">
-                    From hand-drawn sketches to code
+                    From diagrams to code
                 </p>
             </div>
 
@@ -116,7 +118,7 @@ export default function ProjectSelector({
                     <Button
                         variant="primary"
                         size="lg"
-                        className="w-full bg-slate-900 hover:bg-slate-800"
+                        className="w-full bg-slate-900 hover:bg-slate-800 text-white"
                         onClick={onConnectGitHub}
                     >
                         <Github className="w-5 h-5 mr-2" />

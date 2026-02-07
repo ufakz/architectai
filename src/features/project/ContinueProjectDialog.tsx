@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { X, Folder, Loader2, RefreshCw, Calendar, Lock, Globe } from 'lucide-react';
 import { Card, Button } from '../../components/ui';
 import { GitHubAuth, GitHubRepo } from '../../types/projectTypes';
-import { listArchitectAIRepos } from '../../services/githubService';
+import { listAichitectRepos } from '../../services/githubService';
 
 interface ContinueProjectDialogProps {
     isOpen: boolean;
@@ -32,7 +32,7 @@ export default function ContinueProjectDialog({
         setIsLoading(true);
         setError(null);
         try {
-            const results = await listArchitectAIRepos(auth);
+            const results = await listAichitectRepos(auth);
             setRepos(results);
         } catch (err: any) {
             setError(err.message || 'Failed to load projects');
@@ -131,15 +131,15 @@ export default function ContinueProjectDialog({
                                     key={repo.id}
                                     onClick={() => setSelectedRepo(repo)}
                                     className={`w-full text-left p-4 rounded-xl border-2 transition-all ${selectedRepo?.id === repo.id
-                                            ? 'border-primary bg-primary/5'
-                                            : 'border-slate-100 hover:border-slate-200 hover:bg-slate-50'
+                                        ? 'border-primary bg-primary/5'
+                                        : 'border-slate-100 hover:border-slate-200 hover:bg-slate-50'
                                         }`}
                                 >
                                     <div className="flex items-start justify-between">
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-2 mb-1">
                                                 <h3 className="font-semibold text-slate-900 truncate">
-                                                    {repo.name.replace('architectai-', '')}
+                                                    {repo.name.replace('aichitect-', '')}
                                                 </h3>
                                                 {repo.private ? (
                                                     <Lock size={12} className="text-slate-400 flex-shrink-0" />
